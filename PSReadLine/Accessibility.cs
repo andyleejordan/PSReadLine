@@ -14,8 +14,9 @@ namespace Microsoft.PowerShell.Internal
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
+                // NOTE: This API can detect if a third-party screen reader is active, such as NVDA, but not the in-box Windows Narrator.
                 PlatformWindows.SystemParametersInfo(PlatformWindows.SPI_GETSCREENREADER, 0, ref returnValue, 0);
-            }
+            } // TODO: Support other platforms per https://code.visualstudio.com/docs/configure/accessibility/accessibility
 
             return returnValue;
         }
