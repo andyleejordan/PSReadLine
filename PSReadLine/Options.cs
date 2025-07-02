@@ -185,6 +185,10 @@ namespace Microsoft.PowerShell
                             nameof(Options.TerminateOrphanedConsoleApps)));
                 }
             }
+            if (options._screenreader.HasValue)
+            {
+                Options.Screenreader = options.Screenreader;
+            }
         }
 
         private void SetKeyHandlerInternal(string[] keys, Action<ConsoleKeyInfo?, object> handler, string briefDescription, string longDescription, ScriptBlock scriptBlock)

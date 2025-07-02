@@ -15,6 +15,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Microsoft.PowerShell.PSReadLine;
+using Microsoft.PowerShell.Internal;
 using AllowNull = System.Management.Automation.AllowNullAttribute;
 
 namespace Microsoft.PowerShell
@@ -163,6 +164,11 @@ namespace Microsoft.PowerShell
         /// </summary>
         public const int DefaultAnsiEscapeTimeout = 100;
 
+        /// <summary>
+        /// If screenreader support is enabled, which changes the main input loop.
+        /// </summary>
+        public static readonly bool DefaultScreenreader = Accessibility.IsScreenReaderActive();
+
         static PSConsoleReadLineOptions()
         {
             // For inline-view suggestion text, we use the new FG color 'dim white italic' when possible, because it provides
@@ -224,6 +230,7 @@ namespace Microsoft.PowerShell
                     : PredictionSource.HistoryAndPlugin;
             PredictionViewStyle = DefaultPredictionViewStyle;
             MaximumHistoryCount = 0;
+            Screenreader = DefaultScreenreader;
 
             var historyFileName = hostName + "_history.txt";
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -532,6 +539,8 @@ namespace Microsoft.PowerShell
         }
 
         public bool TerminateOrphanedConsoleApps { get; set; }
+
+        public bool Screenreader { get; set; }
 
         internal string _defaultTokenColor;
         internal string _commentColor;
@@ -846,6 +855,14 @@ namespace Microsoft.PowerShell
             set => _terminateOrphanedConsoleApps = value;
         }
         internal SwitchParameter? _terminateOrphanedConsoleApps;
+
+        [Parameter]
+        public SwitchParameter Screenreader
+        {
+            get => _screenreader.GetValueOrDefault();
+            set => _screenreader = value;
+        }
+        internal SwitchParameter? _screenreader;
 
         [ExcludeFromCodeCoverage]
         protected override void EndProcessing()
