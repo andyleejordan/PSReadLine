@@ -10,15 +10,43 @@ namespace Microsoft.PowerShell.Internal
     {
         internal static bool IsScreenReaderActive()
         {
-            bool returnValue = false;
+            // TODO: Support other platforms per https://code.visualstudio.com/docs/configure/accessibility/accessibility
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return false;
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            // The supposedly official way to check for a screen reader on
+            // Windows is SystemParametersInfo(SPI_GETSCREENREADER, ...) but it
+            // doesn't detect the in-box Windows Narrator and is otherwise known
+            // to be problematic.
+            //
+            // The following is adapted from the Electron project, under the MIT License.
+            // Hence this is also how VS Code detects screenreaders.
+            // See: https://github.com/electron/electron/pull/39988
+
+            // Check for Windows Narrator using the NarratorRunning mutex
+            if (PlatformWindows.IsMutexPresent("NarratorRunning"))
+                return true;
+
+            // Check for various screen reader libraries
+            string[] screenReaderLibraries = {
+                // NVDA
+                "nvdaHelperRemote.dll",
+                // JAWS
+                "jhook.dll",
+                // Window-Eyes
+                "gwhk64.dll", 
+                "gwmhook.dll",
+                // ZoomText
+                "AiSquared.Infuser.HookLib.dll"
+            };
+
+            foreach (string library in screenReaderLibraries)
             {
-                // NOTE: This API can detect if a third-party screen reader is active, such as NVDA, but not the in-box Windows Narrator.
-                PlatformWindows.SystemParametersInfo(PlatformWindows.SPI_GETSCREENREADER, 0, ref returnValue, 0);
-            } // TODO: Support other platforms per https://code.visualstudio.com/docs/configure/accessibility/accessibility
+                if (PlatformWindows.IsLibraryLoaded(library))
+                    return true;
+            }
 
-            return returnValue;
+            return false;
         }
     }
 }
