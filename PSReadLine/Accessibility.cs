@@ -2,6 +2,7 @@
 Copyright (c) Microsoft Corporation.  All rights reserved.
 --********************************************************************/
 
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Microsoft.PowerShell.Internal
@@ -10,10 +11,17 @@ namespace Microsoft.PowerShell.Internal
     {
         internal static bool IsScreenReaderActive()
         {
-            // TODO: Support other platforms per https://code.visualstudio.com/docs/configure/accessibility/accessibility
-            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                return false;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                return IsAnyWindowsScreenReaderEnabled();           // Check for macOS VoiceOver
 
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                return IsVoiceOverEnabled();
+
+            // TODO: Support Linux per https://code.visualstudio.com/docs/configure/accessibility/accessibility
+            return false;
+        }
+
+        private static bool IsAnyWindowsScreenReaderEnabled() {
             // The supposedly official way to check for a screen reader on
             // Windows is SystemParametersInfo(SPI_GETSCREENREADER, ...) but it
             // doesn't detect the in-box Windows Narrator and is otherwise known
@@ -44,6 +52,39 @@ namespace Microsoft.PowerShell.Internal
             {
                 if (PlatformWindows.IsLibraryLoaded(library))
                     return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsVoiceOverEnabled()
+        {
+            try
+            {
+                // Use the 'defaults' command to check if VoiceOver is enabled
+                // This checks the com.apple.universalaccess preference for voiceOverOnOffKey
+                ProcessStartInfo startInfo = new()
+                {
+                    FileName = "defaults",
+                    Arguments = "read com.apple.universalaccess voiceOverOnOffKey",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using Process process = Process.Start(startInfo);
+                process.WaitForExit(250);
+                if (process.ExitCode == 0)
+                {
+                    string output = process.StandardOutput.ReadToEnd().Trim();
+                    // VoiceOver is enabled if the value is 1
+                    return output == "1";
+                }
+            }
+            catch
+            {
+                // If we can't determine the status, assume VoiceOver is not enabled
             }
 
             return false;
