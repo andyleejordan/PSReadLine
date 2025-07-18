@@ -188,6 +188,12 @@ namespace Microsoft.PowerShell
             if (options._screenReader.HasValue)
             {
                 Options.ScreenReader = options.ScreenReader;
+
+                // Disable prediction for better accessibility
+                if (Options.ScreenReader)
+                {
+                    Options.PredictionSource = PredictionSource.None;
+                }
             }
         }
 
