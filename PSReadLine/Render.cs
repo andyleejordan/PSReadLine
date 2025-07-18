@@ -218,7 +218,7 @@ namespace Microsoft.PowerShell
             Render();
         }
 
-        private void SafeRender(string s, int? cursor = null)
+        private void SafeRender(string s, int? cursorBefore = null, int? cursorAfter = null)
         {
             // Render as usual if we're not supporting a screen reader
             if (!_singleton.Options.ScreenReader)
@@ -227,13 +227,17 @@ namespace Microsoft.PowerShell
                 return;
             }
 
-            // Move the cursor if we have to
-            if (cursor.HasValue)
-                MoveCursor(cursor.Value);
+            // Many commands will need the cursor set before writing
+            if (cursorBefore.HasValue)
+                MoveCursor(cursorBefore.Value);
 
             // Directly write without re-rendering
             // This means using ANSI escapes for movement
             _console.Write(s);
+
+            // Some commands adjust the cursor after writing
+            if (cursorAfter.HasValue)
+                MoveCursor(cursorAfter.Value);
         }
 
         private void Render()

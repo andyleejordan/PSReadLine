@@ -846,6 +846,8 @@ namespace Microsoft.PowerShell
             }
             _buffer.Clear();
             _buffer.Append(line);
+            // Deletes the whole line (from start of line)
+            SafeRender("\x1b[K", 0);
 
             switch (moveCursor)
             {
@@ -864,7 +866,8 @@ namespace Microsoft.PowerShell
             }
 
             using var _ = _prediction.DisableScoped();
-            Render();
+            // Renders the line and re-adjusts the cursor to account for the above options
+            SafeRender(line, cursorBefore: null, cursorAfter: _current);
         }
 
         private void SaveCurrentLine()
