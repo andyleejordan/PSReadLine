@@ -78,7 +78,8 @@ namespace Microsoft.PowerShell
             SaveEditItem(EditItemDelete.Create(killText, start));
             _buffer.Remove(start, length);
             _current = start;
-            Render();
+            // Deletes the rest of the line from start
+            SafeRender("\x1b[K", start);
             if (_killCommandCount > 0)
             {
                 if (prepend)

@@ -83,7 +83,8 @@ namespace Microsoft.PowerShell
                 _singleton._buffer.Insert(_singleton._current, c);
             }
             _singleton._current += 1;
-            _singleton.Render();
+            // Renders the character (which moves the cursor forward one)
+            _singleton.SafeRender(c.ToString());
         }
 
         /// <summary>
@@ -105,7 +106,8 @@ namespace Microsoft.PowerShell
                 _singleton._buffer.Insert(_singleton._current, s);
             }
             _singleton._current += s.Length;
-            _singleton.Render();
+            // Renders the string (which moves the cursor forward the string's length)
+            _singleton.SafeRender(s);
         }
 
         /// <summary>
@@ -147,6 +149,8 @@ namespace Microsoft.PowerShell
             var str = _singleton._buffer.ToString(start, length);
             _singleton.SaveEditItem(EditItemDelete.Create(str, start));
             _singleton._buffer.Remove(start, length);
+            // Moves cursor to start (backwards probably) and then deletes length
+            _singleton.SafeRender($"\x1b[{length}P", start);
             if (replacement != null)
             {
                 _singleton.SaveEditItem(EditItemInsertString.Create(replacement, start));
@@ -161,7 +165,8 @@ namespace Microsoft.PowerShell
             if (useEditGroup)
             {
                 _singleton.EndEditGroup(instigator, instigatorArg); // Instigator is needed for VI undo
-                _singleton.Render();
+                // Renders the string (which moves the cursor forward the string's length)
+                _singleton.SafeRender(replacement);
             }
         }
 

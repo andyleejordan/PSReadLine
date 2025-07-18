@@ -194,7 +194,8 @@ namespace Microsoft.PowerShell
 
                 _singleton.RemoveTextToViRegister(startDeleteIndex, qty, BackwardDeleteChar, arg, !InViEditMode());
                 _singleton._current = startDeleteIndex;
-                _singleton.Render();
+                // Moves cursor to startDeleteIndex (backwards probably) and then deletes qty
+                _singleton.SafeRender($"\x1b[{qty}P", startDeleteIndex);
             }
         }
 
@@ -218,7 +219,8 @@ namespace Microsoft.PowerShell
                     {
                         _current = Math.Max(0, _buffer.Length + ViEndOfLineFactor);
                     }
-                    Render();
+                    // Deletes qty characters without moving the cursor
+                    _singleton.SafeRender($"\x1b[{qty}P");
                 }
             }
             else if (orExit)

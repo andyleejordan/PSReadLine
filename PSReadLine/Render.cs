@@ -218,6 +218,24 @@ namespace Microsoft.PowerShell
             Render();
         }
 
+        private void SafeRender(string s, int? cursor = null)
+        {
+            // Render as usual if we're not supporting a screen reader
+            if (!_singleton.Options.ScreenReader)
+            {
+                Render();
+                return;
+            }
+
+            // Move the cursor if we have to
+            if (cursor.HasValue)
+                MoveCursor(cursor.Value);
+
+            // Directly write without re-rendering
+            // This means using ANSI escapes for movement
+            _console.Write(s);
+        }
+
         private void Render()
         {
             // If there are a bunch of keys queued up, skip rendering if we've rendered very recently.
