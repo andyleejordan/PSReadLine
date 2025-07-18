@@ -93,28 +93,6 @@ static class PlatformWindows
     }
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    internal static extern bool GetModuleHandleEx(uint dwFlags, string lpModuleName, out IntPtr phModule);
-
-    internal static bool IsLibraryLoaded(string name)
-    {
-        // Prevents the reference count for the module being incremented.
-        const uint GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT = 0x00000002;
-        try
-        {
-            bool retValue = GetModuleHandleEx(
-                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, 
-                name, 
-                out IntPtr phModule);
-            return phModule != IntPtr.Zero;
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern bool SetConsoleCtrlHandler(BreakHandler handlerRoutine, bool add);
 
     delegate bool BreakHandler(ConsoleBreakSignal ConsoleBreakSignal);

@@ -22,37 +22,27 @@ namespace Microsoft.PowerShell.Internal
         }
 
         private static bool IsAnyWindowsScreenReaderEnabled() {
-            // The supposedly official way to check for a screen reader on
-            // Windows is SystemParametersInfo(SPI_GETSCREENREADER, ...) but it
-            // doesn't detect the in-box Windows Narrator and is otherwise known
-            // to be problematic.
+            // The official way to check for a screen reader on Windows is
+            // SystemParametersInfo(SPI_GETSCREENREADER, ...) but it doesn't
+            // detect the in-box Windows Narrator and is otherwise known to be
+            // problematic.
             //
-            // The following is adapted from the Electron project, under the MIT License.
-            // Hence this is also how VS Code detects screenreaders.
-            // See: https://github.com/electron/electron/pull/39988
-
-            // Check for Windows Narrator using the NarratorRunning mutex
-            if (PlatformWindows.IsMutexPresent("NarratorRunning"))
+            // Unfortunately, the alternative method used by Electron and
+            // Chromium, where the relevant screen reader libraries (modules)
+            // are checked for does not work in the context of PowerShell
+            // because it relies on those applications injecting themselves into
+            // the app. Which they do not because it's not a windowed app, so
+            // we're stuck using the known-to-be-buggy way.
+            bool spiScreenReader = false;
+            PlatformWindows.SystemParametersInfo(PlatformWindows.SPI_GETSCREENREADER, 0, ref spiScreenReader, 0);
+            if (spiScreenReader)
                 return true;
 
-            // Check for various screen reader libraries
-            string[] screenReaderLibraries = {
-                // NVDA
-                "nvdaHelperRemote.dll",
-                // JAWS
-                "jhook.dll",
-                // Window-Eyes
-                "gwhk64.dll", 
-                "gwmhook.dll",
-                // ZoomText
-                "AiSquared.Infuser.HookLib.dll"
-            };
-
-            foreach (string library in screenReaderLibraries)
-            {
-                if (PlatformWindows.IsLibraryLoaded(library))
-                    return true;
-            }
+            // At least we can correctly check for Windows Narrator using the
+            // NarratorRunning mutex (which is mostly not broken with
+            // PSReadLine, as it were).
+            if (PlatformWindows.IsMutexPresent("NarratorRunning"))
+                return true;
 
             return false;
         }
