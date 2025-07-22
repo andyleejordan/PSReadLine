@@ -218,7 +218,7 @@ namespace Microsoft.PowerShell
             Render();
         }
 
-        private void SafeRender(string s, int? cursorBefore = null, int? cursorAfter = null)
+        private void SafeRender(string s = null, int? cursorBefore = null, int? cursorAfter = null)
         {
             // Render as usual if we're not supporting a screen reader
             if (!_singleton.Options.ScreenReader)
@@ -233,7 +233,8 @@ namespace Microsoft.PowerShell
 
             // Directly write without re-rendering
             // This means using ANSI escapes for movement
-            _console.Write(s);
+            if (!string.IsNullOrEmpty(s))
+                _console.Write(s);
 
             // Some commands adjust the cursor after writing
             if (cursorAfter.HasValue)
@@ -1707,6 +1708,7 @@ namespace Microsoft.PowerShell
             _singleton._mockableMethods.Ding();
         }
 
+        // TODO: Evaluate this under a screen reader
         private bool PromptYesOrNo(string s)
         {
             _statusLinePrompt = s;

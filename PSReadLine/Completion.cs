@@ -236,6 +236,7 @@ namespace Microsoft.PowerShell
                 // completions, then we'll be showing the possible completions where it's very
                 // unlikely that we would add a trailing backslash.
 
+                // Replace has already safely rendered the replacement 
                 DoReplacementForCompletion(completions.CompletionMatches[0], completions);
                 return;
             }
@@ -835,6 +836,7 @@ namespace Microsoft.PowerShell
             return item;
         }
 
+        // TODO: Test menu completions under a screen reader
         private void MenuCompleteImpl(Menu menu, CommandCompletion completions)
         {
             var menuStack = new Stack<Menu>(10);

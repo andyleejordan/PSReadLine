@@ -681,6 +681,7 @@ namespace Microsoft.PowerShell
         public static void WhatIsKey(ConsoleKeyInfo? key = null, object arg = null)
         {
             _singleton._statusLinePrompt = "what-is-key: ";
+            // TODO: Evaluate this under a screen reader
             _singleton.Render();
             var toLookup = ReadKey();
             var buffer = new StringBuilder();

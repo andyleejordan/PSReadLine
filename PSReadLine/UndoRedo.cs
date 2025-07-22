@@ -127,7 +127,8 @@ namespace Microsoft.PowerShell
                 {
                     _singleton._current = Math.Max(0, _singleton._buffer.Length + ViEndOfLineFactor);
                 }
-                _singleton.Render();
+                // Undo has already safely rendered the character removals
+                _singleton.SafeRender();
             }
             else
             {
@@ -144,7 +145,8 @@ namespace Microsoft.PowerShell
             {
                 _singleton._edits[_singleton._undoEditIndex].Redo();
                 _singleton._undoEditIndex++;
-                _singleton.Render();
+                // Redo has already safely rendered the character removals
+                _singleton.SafeRender();
             }
             else
             {
@@ -183,12 +185,16 @@ namespace Microsoft.PowerShell
                 Debug.Assert(_singleton._buffer[_insertStartPosition] == _insertedCharacter, "Character to undo is not what it should be");
                 _singleton._buffer.Remove(_insertStartPosition, 1);
                 _singleton._current = _insertStartPosition;
+                // Same as remove
+                _singleton.SafeRender("\x1b[1P", _insertStartPosition);
             }
 
             public override void Redo()
             {
                 _singleton._buffer.Insert(_insertStartPosition, _insertedCharacter);
                 _singleton._current++;
+                // Same as insert
+                _singleton.SafeRender(_insertedCharacter.ToString(), _insertStartPosition);
             }
         }
 
@@ -217,12 +223,16 @@ namespace Microsoft.PowerShell
                     "Character to undo is not what it should be");
                 _singleton._buffer.Remove(_insertStartPosition, _insertedString.Length);
                 _singleton._current = _insertStartPosition;
+                // Same as remove
+                _singleton.SafeRender($"\x1b[{_insertedString.Length}P", _insertStartPosition);
             }
 
             public override void Redo()
             {
                 _singleton._buffer.Insert(_insertStartPosition, _insertedString);
                 _singleton._current += _insertedString.Length;
+                // Same as insert
+                _singleton.SafeRender(_insertedString, _insertStartPosition);
             }
         }
 
@@ -292,12 +302,16 @@ namespace Microsoft.PowerShell
                 _singleton._current = _moveCursorToEndWhenUndo
                     ? _deleteStartPosition + _deletedString.Length
                     : _deleteStartPosition;
+                // Same as insert
+                _singleton.SafeRender(_deletedString, _deleteStartPosition, _singleton._current);
             }
 
             public override void Redo()
             {
                 _singleton._buffer.Remove(_deleteStartPosition, _deletedString.Length);
                 _singleton._current = _deleteStartPosition;
+                // Same as remove
+                _singleton.SafeRender($"\x1b[{_deletedString.Length}P", _deleteStartPosition);
             }
         }
 

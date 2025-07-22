@@ -287,6 +287,7 @@ namespace Microsoft.PowerShell
                                 _singleton._initialY = newCursorTop;
                                 if (bufferLen > 0)
                                 {
+                                    // TODO: Evaluate this under a screen reader
                                     _singleton.Render();
                                 }
                             }
@@ -332,6 +333,7 @@ namespace Microsoft.PowerShell
                 _singleton._getNextHistoryIndex = _singleton._history.Count;
                 _singleton._current = 0;
                 _singleton._buffer.Clear();
+                // TODO: Evaluate this under a screen reader
                 _singleton.Render();
                 throw new OperationCanceledException();
             }
@@ -1110,6 +1112,8 @@ namespace Microsoft.PowerShell
             _singleton._previousRender.UpdateConsoleInfo(console);
             _singleton._previousRender.initialY = _singleton._initialY;
 
+            // TODO: Evaluate this under a screen reader
+            // It appears that VS Code's shell integration injects into the prompt
             _singleton.Render();
             console.CursorVisible = true;
         }

@@ -73,7 +73,8 @@ namespace Microsoft.PowerShell
                 _singleton._edits[_singleton._undoEditIndex - 1].Undo();
                 _singleton._undoEditIndex--;
             }
-            _singleton.Render();
+            // Undo has already safely rendered the character removals
+            _singleton.SafeRender();
         }
 
         /// <summary>
@@ -86,8 +87,10 @@ namespace Microsoft.PowerShell
             _singleton._current = _singleton._buffer.Length;
 
             using var _ = _singleton._prediction.DisableScoped();
+            // The behavior of this is as expected under a screen reader
             _singleton.ForceRender();
 
+            // Display a literal ^C in bright red then reset formatting
             _singleton._console.Write("\x1b[91m^C\x1b[0m");
 
             _singleton._buffer.Clear(); // Clear so we don't actually run the input
@@ -138,7 +141,8 @@ namespace Microsoft.PowerShell
                         !InViEditMode()));
 
                 buffer.Remove(current, length);
-                _singleton.Render();
+                // Moves cursor to current (backwards probably) and then deletes length
+                _singleton.SafeRender($"\x1b[{length}P", current);
             }
         }
 
@@ -168,6 +172,7 @@ namespace Microsoft.PowerShell
 
                 _singleton.RemoveTextToViRegister(position, count, instigator, arg: null, !InViEditMode());
                 _singleton._current = position;
+                // TODO: This seems to only be used in Vi mode which we need to evaluate under a screen reader
                 _singleton.Render();
             }
         }
@@ -268,7 +273,8 @@ namespace Microsoft.PowerShell
             Replace(_singleton._current, wordlen, word);
 
             _singleton.MoveCursor(endOfWord);
-            _singleton.Render();
+            // Replace has already safely rendered the replacement
+            _singleton.SafeRender();
         }
 
         /// <summary>
@@ -311,7 +317,8 @@ namespace Microsoft.PowerShell
             }
 
             _singleton.MoveCursor(endOfWord);
-            _singleton.Render();
+            // Replace has already safely rendered the replacement
+            _singleton.SafeRender();
         }
 
         private bool AcceptLineImpl(bool validate)
@@ -337,6 +344,7 @@ namespace Microsoft.PowerShell
 
             if (renderNeeded)
             {
+                // TODO: Evaluate this under a screen reader
                 ForceRender();
             }
 
@@ -363,6 +371,7 @@ namespace Microsoft.PowerShell
                     _statusLinePrompt = "";
                     _statusBuffer.Append(errorMessage);
                     _statusIsErrorMessage = true;
+                    // TODO: Evaluate this under a screen reader
                     Render();
                     return false;
                 }
