@@ -1143,6 +1143,7 @@ namespace Microsoft.PowerShell
                         ? HistoryMoveCursor.ToEnd
                         : HistoryMoveCursor.DontMove;
                     UpdateFromHistory(moveCursor);
+                    SafeRender($"\x1b[s\x1b[1E\x1b[K{_statusLinePrompt}{toMatch}_\x1b[u");
                     return;
                 }
             }
@@ -1157,7 +1158,8 @@ namespace Microsoft.PowerShell
             _emphasisStart = -1;
             _emphasisLength = 0;
             _statusLinePrompt = direction > 0 ? _failedForwardISearchPrompt : _failedBackwardISearchPrompt;
-            Render();
+            // Deletes the original status line and then renders the new one
+            SafeRender($"\x1b[s\x1b[1E\x1b[K{_statusLinePrompt}{toMatch}_\x1b[u");
         }
 
         private void InteractiveHistorySearchLoop(int direction)
@@ -1193,6 +1195,7 @@ namespace Microsoft.PowerShell
                     {
                         toMatch.Remove(toMatch.Length - 1, 1);
                         _statusBuffer.Remove(_statusBuffer.Length - 2, 1);
+                        SafeRender($"\x1b[s\x1b[1E\x1b[{_statusLinePrompt.Length + toMatch.Length}C\x1b[P\x1b[u");
                         searchPositions.Pop();
                         searchFromPoint = _currentHistoryIndex = searchPositions.Peek();
                         var moveCursor = Options.HistorySearchCursorMovesToEnd
@@ -1223,7 +1226,8 @@ namespace Microsoft.PowerShell
                             _current = startIndex;
                             _emphasisStart = startIndex;
                             _emphasisLength = toMatch.Length;
-                            Render();
+                            // Deletes the original status line prompt and then renders the new one
+                            SafeRender($"\x1b[s\x1b[1E\x1b[K{_statusLinePrompt}{toMatch}_\x1b[u");
                         }
                     }
                     else
@@ -1264,7 +1268,7 @@ namespace Microsoft.PowerShell
                         _current = startIndex;
                         _emphasisStart = startIndex;
                         _emphasisLength = toMatch.Length;
-                        Render();
+                        SafeRender(toAppend.ToString());
                     }
                     searchPositions.Push(_currentHistoryIndex);
                 }
@@ -1280,13 +1284,15 @@ namespace Microsoft.PowerShell
             _statusLinePrompt = direction > 0 ? _forwardISearchPrompt : _backwardISearchPrompt;
             _statusBuffer.Append("_");
 
-            Render(); // Render prompt
+            // Saves cursor, renders new line with status prompt, restores cursor
+            SafeRender($"\x1b[s\n{_statusLinePrompt}_\x1b[u");
             InteractiveHistorySearchLoop(direction);
 
             _emphasisStart = -1;
             _emphasisLength = 0;
 
             // Remove our status line, this will render
+            // TODO: Evaluate this under a screen reader
             ClearStatusMessage(render: true);
         }
 
