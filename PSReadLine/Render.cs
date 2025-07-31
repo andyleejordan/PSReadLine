@@ -218,36 +218,155 @@ namespace Microsoft.PowerShell
             Render();
         }
 
-        private void Render()
+        private void Render(bool force = false)
         {
             // If there are a bunch of keys queued up, skip rendering if we've rendered very recently.
             long elapsedMs = _lastRenderTime.ElapsedMilliseconds;
-            if (_queuedKeys.Count > 10 && elapsedMs < 50)
+            if (!force)
             {
-                // We won't render, but most likely the tokens will be different, so make
-                // sure we don't use old tokens, also allow garbage to get collected.
-                _tokens = null;
-                _ast = null;
-                _parseErrors = null;
-                _waitingToRender = true;
-                return;
+                if (_queuedKeys.Count > 10 && elapsedMs < 50)
+                {
+                    // We won't render, but most likely the tokens will be different, so make
+                    // sure we don't use old tokens, also allow garbage to get collected.
+                    _tokens = null;
+                    _ast = null;
+                    _parseErrors = null;
+                    _waitingToRender = true;
+                    return;
+                }
+
+                // If we've rendered very recently, skip the terminal window resizing check as it's unlikely
+                // to happen in such a short time interval.
+                // We try to avoid unnecessary resizing check because it requires getting the cursor position
+                // which would force a network round trip in an environment where front-end xtermjs talking to
+                // a server-side PTY via websocket. Without querying for cursor position, content written on
+                // the server side could be buffered, which is much more performant.
+                // See the following 2 GitHub issues for more context:
+                //  - https://github.com/PowerShell/PSReadLine/issues/3879#issuecomment-2573996070
+                //  - https://github.com/PowerShell/PowerShell/issues/24696
+                if (elapsedMs < 50)
+                {
+                    _handlePotentialResizing = false;
+                }
             }
 
-            // If we've rendered very recently, skip the terminal window resizing check as it's unlikely
-            // to happen in such a short time interval.
-            // We try to avoid unnecessary resizing check because it requires getting the cursor position
-            // which would force a network round trip in an environment where front-end xtermjs talking to
-            // a server-side PTY via websocket. Without querying for cursor position, content written on
-            // the server side could be buffered, which is much more performant.
-            // See the following 2 GitHub issues for more context:
-            //  - https://github.com/PowerShell/PSReadLine/issues/3879#issuecomment-2573996070
-            //  - https://github.com/PowerShell/PowerShell/issues/24696
-            if (elapsedMs < 50)
+            // Use simplified rendering for screen readers
+            if (Options.ScreenReader)
             {
-                _handlePotentialResizing = false;
+                SafeRender();
+            }
+            else
+            {
+                ForceRender();
+            }
+        }
+        
+        private void SafeRender()
+        {
+            int bufferWidth = _console.BufferWidth;
+            int bufferHeight = _console.BufferHeight;
+
+            static int FindCommonPrefixLength(string leftStr, string rightStr)
+            {
+                if (string.IsNullOrEmpty(leftStr) || string.IsNullOrEmpty(rightStr))
+                {
+                    return 0;
+                }
+
+                int i = 0;
+                int minLength = Math.Min(leftStr.Length, rightStr.Length);
+
+                while (i < minLength && leftStr[i] == rightStr[i])
+                {
+                    i++;
+                }
+
+                return i;
             }
 
-            ForceRender();
+            // For screen readers, we are just comparing the previous and current buffer text
+            // (without colors) and only writing the differences.
+            string currentBuffer = ParseInput();
+            string previousBuffer = _previousRender.lines[0].Line;
+
+            // In case the buffer was resized.
+            RecomputeInitialCoords(isTextBufferUnchanged: false);
+
+            // Make cursor invisible while we're rendering.
+            _console.CursorVisible = false;
+
+            // Calculate what to render and where to start the rendering.
+            // TODO: Short circuit optimization when currentBuffer == previousBuffer.
+            int commonPrefixLength = FindCommonPrefixLength(previousBuffer, currentBuffer);
+
+            if (commonPrefixLength > 0 && commonPrefixLength == previousBuffer.Length)
+            {
+                // Previous buffer is a complete prefix of current buffer.
+                // Just append the new data.
+                var appendedData = currentBuffer.Substring(commonPrefixLength);
+                _console.Write(appendedData);
+            }
+            else if (commonPrefixLength > 0)
+            {
+                // Buffers share a common prefix but previous buffer has additional content.
+                // Move cursor to where the difference starts, clear forward, and write the data.
+                var diffPoint = ConvertOffsetToPoint(commonPrefixLength);
+                _console.SetCursorPosition(diffPoint.X, diffPoint.Y);
+                var changedData = currentBuffer.Substring(commonPrefixLength);
+                _console.Write("\x1b[0J");
+                _console.Write(changedData);
+            }
+            else
+            {
+                // No common prefix, rewrite entire buffer.
+                _console.SetCursorPosition(_initialX, _initialY);
+                _console.Write("\x1b[0J");
+                _console.Write(currentBuffer);
+            }
+
+            // If we had to wrap to render everything, update _initialY
+            var endPoint = ConvertOffsetToPoint(currentBuffer.Length);
+            int physicalLine = endPoint.Y - _initialY;
+            if (_initialY + physicalLine > bufferHeight)
+            {
+                // We had to scroll to render everything, update _initialY.
+                _initialY = bufferHeight - physicalLine;
+            }
+
+            // Preserve the current render data.
+            var renderData = new RenderData
+            {
+                lines = new RenderedLineData[] { new(currentBuffer, isFirstLogicalLine: true) },
+                errorPrompt = (_parseErrors != null && _parseErrors.Length > 0) // Not yet used.
+            };
+            _previousRender = renderData;
+
+            // Calculate the coord to place the cursor for the next input.
+            var point = ConvertOffsetToPoint(_current);
+
+            if (point.Y == bufferHeight)
+            {
+                // The cursor top exceeds the buffer height and it hasn't already wrapped,
+                // so we need to scroll up the buffer by 1 line.
+                if (point.X == 0)
+                {
+                    _console.Write("\n");
+                }
+
+                // Adjust the initial cursor position and the to-be-set cursor position
+                // after scrolling up the buffer.
+                _initialY -= 1;
+                point.Y -= 1;
+            }
+
+            _console.SetCursorPosition(point.X, point.Y);
+            _console.CursorVisible = true;
+
+            _previousRender.UpdateConsoleInfo(bufferWidth, bufferHeight, point.X, point.Y);
+            _previousRender.initialY = _initialY;
+
+            _lastRenderTime.Restart();
+            _waitingToRender = false;
         }
 
         private void ForceRender()
@@ -261,7 +380,7 @@ namespace Microsoft.PowerShell
             // and minimize writing more than necessary on the next render.)
 
             var renderLines = new RenderedLineData[logicalLineCount];
-            var renderData = new RenderData {lines = renderLines};
+            var renderData = new RenderData { lines = renderLines };
             for (var i = 0; i < logicalLineCount; i++)
             {
                 var line = _consoleBufferLines[i].ToString();

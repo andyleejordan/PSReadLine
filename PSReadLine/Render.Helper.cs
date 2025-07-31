@@ -96,6 +96,7 @@ namespace Microsoft.PowerShell
             if (c < 256)
             {
                 // We render ^C for Ctrl+C, so return 2 for control characters
+                // TODO: Do we care about this under a screen reader?
                 return Char.IsControl(c) ? 2 : 1;
             }
 

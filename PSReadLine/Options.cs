@@ -189,10 +189,12 @@ namespace Microsoft.PowerShell
             {
                 Options.ScreenReader = options.ScreenReader;
 
-                // Disable prediction for better accessibility
                 if (Options.ScreenReader)
                 {
+                    // Disable prediction for better accessibility.
                     Options.PredictionSource = PredictionSource.None;
+                    // Disable continuation prompt as multi-line is not available.
+                    Options.ContinuationPrompt = "";
                 }
             }
         }
