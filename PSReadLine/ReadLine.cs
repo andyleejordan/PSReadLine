@@ -790,6 +790,7 @@ namespace Microsoft.PowerShell
             _previousRender = _initialPrevRender;
             _previousRender.UpdateConsoleInfo(_console);
             _previousRender.initialY = _initialY;
+            _previousBuffer = "";
             _statusIsErrorMessage = false;
 
             _initialOutputEncoding = _console.OutputEncoding;
@@ -1109,6 +1110,7 @@ namespace Microsoft.PowerShell
             _singleton._previousRender = _initialPrevRender;
             _singleton._previousRender.UpdateConsoleInfo(console);
             _singleton._previousRender.initialY = _singleton._initialY;
+            _singleton._previousBuffer = "";
 
             _singleton.Render();
             console.CursorVisible = true;

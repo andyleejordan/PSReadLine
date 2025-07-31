@@ -159,6 +159,7 @@ namespace Microsoft.PowerShell
         private readonly List<StringBuilder> _consoleBufferLines = new(1) {new StringBuilder(COMMON_WIDEST_CONSOLE_WIDTH)};
         private static readonly string[] _spaces = new string[80];
         private RenderData _previousRender;
+        private string _previousBuffer;
         private static readonly RenderData _initialPrevRender = new()
         {
             lines = new[] { new RenderedLineData(line: "", isFirstLogicalLine: true) },
@@ -247,7 +248,84 @@ namespace Microsoft.PowerShell
                 _handlePotentialResizing = false;
             }
 
+            // Use simplified rendering for screen readers
+            if (Options.ScreenReader)
+            {
+                SafeRender();
+            }
+            else
+            {
             ForceRender();
+            }
+        }
+        
+        /// <summary>
+        /// Simplified rendering for screen readers that bypasses tokenization and coloring.
+        /// Compares buffer content directly and only outputs the differences.
+        /// </summary>
+        private void SafeRender()
+        {
+            static int FindCommonPrefixLength(string leftStr, string rightStr)
+            {
+                if (string.IsNullOrEmpty(leftStr) || string.IsNullOrEmpty(rightStr))
+                {
+                    return 0;
+                }
+                
+                int i = 0;
+                int minLength = Math.Min(leftStr.Length, rightStr.Length);
+                
+                while (i < minLength && leftStr[i] == rightStr[i])
+                {
+                    i++;
+                }
+                
+                return i;
+            }
+
+            // For screen readers, we don't need complex tokenization or coloring
+            // Just compare the raw buffer content and output differences
+            // (Though we do have to adjust the cursor aftewards)
+            string currentBuffer = _buffer.ToString();
+            
+            // Make cursor invisible while we're rendering
+            _console.CursorVisible = false;
+            
+            int commonPrefixLength = FindCommonPrefixLength(_previousBuffer, currentBuffer);
+            
+            if (commonPrefixLength > 0 && commonPrefixLength == _previousBuffer.Length)
+            {
+                // Previous buffer is a complete prefix of current buffer
+                // Just append the new data
+                var appendedData = currentBuffer.Substring(commonPrefixLength);
+                _console.Write(appendedData);
+            }
+            else if (commonPrefixLength > 0)
+            {
+                // Buffers share a common prefix but previous buffer has additional content
+                // Move cursor to where the difference starts, clear forward, and write the data
+                _console.SetCursorPosition(_initialX + commonPrefixLength, _initialY);
+                var changedData = currentBuffer.Substring(commonPrefixLength);
+                _console.Write("\x1b[0J");
+                _console.Write(changedData);
+            }
+            else
+            {
+                // No common prefix, rewrite entire buffer
+                _console.SetCursorPosition(_initialX, _initialY);
+                _console.Write("\x1b[0J");
+                _console.Write(currentBuffer);
+            }
+            
+            // Position cursor at the current editing position (not at end of written text)
+            _console.SetCursorPosition(_initialX + _current, _initialY);
+            _console.CursorVisible = true;
+            
+            // Save current buffer for next comparison
+            _previousBuffer = currentBuffer;
+            
+            _lastRenderTime.Restart();
+            _waitingToRender = false;
         }
 
         private void ForceRender()
@@ -261,7 +339,7 @@ namespace Microsoft.PowerShell
             // and minimize writing more than necessary on the next render.)
 
             var renderLines = new RenderedLineData[logicalLineCount];
-            var renderData = new RenderData {lines = renderLines};
+            var renderData = new RenderData { lines = renderLines };
             for (var i = 0; i < logicalLineCount; i++)
             {
                 var line = _consoleBufferLines[i].ToString();
@@ -1827,6 +1905,6 @@ namespace Microsoft.PowerShell
                 newTop = (console.BufferHeight - console.WindowHeight);
             }
             console.SetWindowPosition(0, newTop);
-        }
+        }        
     }
 }
