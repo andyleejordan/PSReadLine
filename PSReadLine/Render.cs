@@ -326,11 +326,18 @@ namespace Microsoft.PowerShell
 
             // If we had to wrap to render everything, update _initialY
             var endPoint = ConvertOffsetToPoint(currentBuffer.Length);
-            int physicalLine = endPoint.Y - _initialY;
-            if (_initialY + physicalLine > bufferHeight)
+            if (endPoint.Y >= bufferHeight)
             {
+
                 // We had to scroll to render everything, update _initialY.
-                _initialY = bufferHeight - physicalLine;
+                int offset = 1; // Base case to handle zero-indexing.
+                if (endPoint.X == 0)
+                {
+                    // The line hasn't actually wrapped yet because we have exactly filled the line.
+                    offset -= 1;
+                }
+                int scrolledLines = endPoint.Y - bufferHeight + offset;
+                _initialY -= scrolledLines;
             }
 
             // Preserve the current render data.
@@ -347,8 +354,8 @@ namespace Microsoft.PowerShell
             if (point.Y == bufferHeight)
             {
                 // The cursor top exceeds the buffer height and it hasn't already wrapped,
-                // so we need to scroll up the buffer by 1 line.
-                if (point.X == 0)
+                // (because we have exactly filled the line) so we need to scroll up the buffer by 1 line.
+                if (point.X == 0 && !currentBuffer.EndsWith("\n"))
                 {
                     _console.Write("\n");
                 }
