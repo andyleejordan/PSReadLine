@@ -179,7 +179,7 @@ static class PlatformWindows
             _prePSReadLineConsoleInputMode = GetConsoleInputMode();
 
             // This envvar will force VT mode on or off depending on the setting 1 or 0.
-            var overrideVtInput = Environment.GetEnvironmentVariable("PSREADLINE_VTINPUT");
+            var overrideVtInput = "1"; // Environment.GetEnvironmentVariable("PSREADLINE_VTINPUT");
             if (overrideVtInput == "1")
             {
                 _enableVtInput = true;
